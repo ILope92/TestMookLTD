@@ -1,0 +1,80 @@
+version: '3'
+services:
+    db:
+        image: postgres:11.4-alpine
+        container_name: mookltd-db-test
+        ports: 
+            - 5432:5432
+        volumes:
+            - /var/lib/postgresql/data/pgdata
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: admin
+            POSTGRES_DB: postgresdb
+            PGDATA: /var/lib/postgresql/data/pgdata
+        restart: always
+      
+    redis:
+        image: redis
+        container_name: mookltd-redis-test
+        ports:
+            - "6379:6379"
+        env_file:
+            - .local.env
+            - .env
+        volumes:
+            - ./docker/redis/data:/data
+        environment:
+            - REDIS_REPLICATION_MODE=master
+        restart: always
+        command: "redis-server --appendonly yes --replica-read-only no"
+    
+    celery:
+        image: mookltd-celery-test
+        container_name: mookltd-celery-test
+        build:
+            context: .
+            dockerfile: backend.Dockerfile
+        volumes:
+            - ./app:/app
+        depends_on:
+            - redis
+            - db
+        env_file:
+            - .env
+        restart: always
+        command: celery -A app.celery worker --loglevel=INFO -B
+    
+    app:
+        container_name: mookltd-app-test
+        build:
+            context: .
+            dockerfile: backend.Dockerfile
+        extra_hosts:
+            - "somehost:127.0.0.1"
+        command: uvicorn main:app --host 0.0.0.0 --port 8000
+        depends_on:
+            - db
+            - redis
+            - celery
+        env_file:
+            - .local.env
+            - .env
+        links:
+            - db
+        ports:
+            - "8000:8000"
+        restart: always
+    
+    nginx:
+        container_name: nginx
+        image: nginx:latest
+        command: '/bin/sh -c ''while :; do sleep 336h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'''
+        depends_on:
+            - app
+        volumes:
+            - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+        ports:
+            - 80:80
+            - 443:443
+        restart: always
