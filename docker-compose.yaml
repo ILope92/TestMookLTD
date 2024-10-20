@@ -6,7 +6,7 @@ services:
         ports: 
             - 5432:5432
         volumes:
-            - /var/lib/postgresql/data/pgdata
+            - ./docker/pgdata:/var/lib/postgresql/data/pgdata
         environment:
             POSTGRES_USER: admin
             POSTGRES_PASSWORD: admin
@@ -52,7 +52,7 @@ services:
             dockerfile: backend.Dockerfile
         extra_hosts:
             - "somehost:127.0.0.1"
-        command: uvicorn main:app --host 0.0.0.0 --port 8000
+        command: uvicorn main:app --host 0.0.0.0 --port 8002
         depends_on:
             - db
             - redis
@@ -63,11 +63,11 @@ services:
         links:
             - db
         ports:
-            - "8000:8000"
+            - "8002:8002"
         restart: always
     
     nginx:
-        container_name: nginx
+        container_name: mookltd-nginx-test
         image: nginx:latest
         command: '/bin/sh -c ''while :; do sleep 336h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'''
         depends_on:
